@@ -5,11 +5,11 @@ from google import genai
 from google.genai import types
 from pypdf import PdfReader
 
-# Configuração da página Streamlit
+# Configuracao da pagina Streamlit
 st.set_page_config(page_title="W7 Academy Assistente", page_icon="💪", layout="centered")
 
 # ======================================================
-# CONFIGURAÇÃO DO GEMINI E BANCO DE DADOS
+# CONFIGURACAO DO GEMINI E BANCO DE DADOS
 # ======================================================
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
@@ -20,11 +20,11 @@ CAMINHO_PDF = os.path.join(DIRETORIO_ATUAL, "apostila.pdf")
 
 @st.cache_resource
 def obter_colecao():
-    """Garante que a coleção exista e esteja carregada com a apostila."""
+    """Garante que a colecao exista e esteja carregada com a apostila."""
     cliente_chroma = chromadb.PersistentClient(path=DIRETORIO_BANCO)
     colecao = cliente_chroma.get_or_create_collection(name="conhecimento_w7")
     
-    # Se a coleção estiver vazia na nuvem, processa o PDF automaticamente
+    # Se a colecao estiver vazia na nuvem, processa o PDF automaticamente
     if colecao.count() == 0 and os.path.exists(CAMINHO_PDF):
         leitor = PdfReader(CAMINHO_PDF)
         docs, metas, ids = [], [], []
@@ -46,19 +46,19 @@ def consultar_cerebro_w7(pergunta_usuario):
         # 1. Busca os trechos mais relevantes
         resultado = colecao.query(query_texts=[pergunta_usuario], n_results=3)
         contexto_lista = resultado.get("documents", [[]])[0]
-        contexto = "\n\n---\n\n".join(contexto_lista) if contexto_lista else "Nenhum trecho específico encontrado."
+        contexto = "\n\n---\n\n".join(contexto_lista) if contexto_lista else "Nenhum trecho especifico encontrado."
 
         # 2. Prompt com contexto da apostila
         prompt_final = f"""
-Você é o assistente de inteligência artificial oficial da W7 Academy, especializado em biomecânica, treinamento resistido, prevenção de lesões e reabilitação física.
+Voce e o assistente de inteligencia artificial oficial da W7 Academy, especializado em biomecanica, treinamento resistido, prevencao de lesoes e reabilitacao fisica.
 
-Use estritamente as informações do contexto abaixo para responder à dúvida do usuário com precisão, clareza e autoridade técnica.
+Use estritamente as informacoes do contexto abaixo para responder a duvida do usuario com precisao, clareza e autoridade tecnica.
 
 --- CONTEXTO DA APOSTILA W7 ---
 {contexto}
 -------------------------------
 
-Pergunta do usuário: {pergunta_usuario}
+Pergunta do usuario: {pergunta_usuario}
 
 Resposta:
 """
@@ -73,10 +73,10 @@ Resposta:
         return f"⚠️ Erro ao consultar a base de conhecimento: {str(e)}"
 
 # ======================================================
-# INTERFACE DO USUÁRIO (CHAT)
+# INTERFACE DO USUARIO (CHAT)
 # ======================================================
 st.title("💪 W7 Academy - Assistente IA")
-st.caption("Tire suas dúvidas técnicas baseadas na metodologia oficial da W7 Academy.")
+st.caption("Tire suas duvidas tecnicas baseadas na metodologia oficial da W7 Academy.")
 
 if "mensagens" not in st.session_state:
     st.session_state["mensagens"] = [
