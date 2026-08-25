@@ -63,7 +63,7 @@ Pergunta do usuario: {pergunta_usuario}
 Resposta:
 """
         resposta = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=prompt_final,
             config=types.GenerateContentConfig(temperature=0.3)
         )
