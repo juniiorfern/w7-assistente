@@ -1,91 +1,98 @@
 import os
+import streamlit as st
 import chromadb
 from google import genai
 from google.genai import types
-import streamlit as st
+from pypdf import PdfReader
 
-# ==========================================
-# CONFIGURAÇÃO DO CÉREBRO RAG (W7 & GEMINI)
-# ==========================================
+# Configuração da página Streamlit
+st.set_page_config(page_title="W7 Academy Assistente", page_icon="💪", layout="centered")
+
+# ======================================================
+# CONFIGURAÇÃO DO GEMINI E BANCO DE DADOS
+# ======================================================
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
 DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
 DIRETORIO_BANCO = os.path.join(DIRETORIO_ATUAL, "w7_database")
+CAMINHO_PDF = os.path.join(DIRETORIO_ATUAL, "apostila.pdf")
+
+@st.cache_resource
+def obter_colecao():
+    """Garante que a coleção exista e esteja carregada com a apostila."""
+    cliente_chroma = chromadb.PersistentClient(path=DIRETORIO_BANCO)
+    colecao = cliente_chroma.get_or_create_collection(name="conhecimento_w7")
+    
+    # Se a coleção estiver vazia na nuvem, processa o PDF automaticamente
+    if colecao.count() == 0 and os.path.exists(CAMINHO_PDF):
+        leitor = PdfReader(CAMINHO_PDF)
+        docs, metas, ids = [], [], []
+        for i, pagina in enumerate(leitor.pages):
+            texto = pagina.extract_text()
+            if texto and texto.strip():
+                docs.append(texto.strip())
+                metas.append({"pagina": i + 1})
+                ids.append(f"pag_{i + 1}")
+        if docs:
+            colecao.add(documents=docs, metadatas=metas, ids=ids)
+            
+    return colecao
 
 def consultar_cerebro_w7(pergunta_usuario):
     try:
-        # 1. Busca os trechos mais relevantes no banco vetorial local
-        cliente_chroma = chromadb.PersistentClient(path=DIRETORIO_BANCO)
-        colecao = cliente_chroma.get_collection(name="conhecimento_w7")
+        colecao = obter_colecao()
         
-        resultados = colecao.query(
-            query_texts=[pergunta_usuario],
-            n_results=3
+        # 1. Busca os trechos mais relevantes
+        resultado = colecao.query(query_texts=[pergunta_usuario], n_results=3)
+        contexto_lista = resultado.get("documents", [[]])[0]
+        contexto = "\n\n---\n\n".join(contexto_lista) if contexto_lista else "Nenhum trecho específico encontrado."
+
+        # 2. Prompt com contexto da apostila
+        prompt_final = f"""
+Você é o assistente de inteligência artificial oficial da W7 Academy, especializado em biomecânica, treinamento resistido, prevenção de lesões e reabilitação física.
+
+Use estritamente as informações do contexto abaixo para responder à dúvida do usuário com precisão, clareza e autoridade técnica.
+
+--- CONTEXTO DA APOSTILA W7 ---
+{contexto}
+-------------------------------
+
+Pergunta do usuário: {pergunta_usuario}
+
+Resposta:
+"""
+        resposta = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt_final,
+            config=types.GenerateContentConfig(temperature=0.3)
         )
-        
-        contexto_recuperado = "\n".join(resultados['documents'][0])
-        
-        # 2. Instrução de sistema restrita à apostila da W7
-        system_prompt = f"""
-        Você é a Inteligência Artificial Oficial da W7 Academy.
-        Responda à dúvida do usuário baseando-se ESTRITAMENTE nos trechos da apostila oficial da W7 fornecidos abaixo.
-        Se a informação não estiver na apostila, utilize seu conhecimento técnico de cinesiologia, mas mantenha o rigor científico.
-        
-        TRECHOS DA APOSTILA DA W7 (Contexto):
-        {contexto_recuperado}
-        """
-        
-        response = client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=pergunta_usuario,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.2,
-            ),
-        )
-        return response.text
+        return resposta.text
+
     except Exception as e:
         return f"⚠️ Erro ao consultar a base de conhecimento: {str(e)}"
 
-# ==========================================
-# CONFIGURAÇÃO DA INTERFACE WEB (STREAMLIT)
-# ==========================================
-st.set_page_config(
-    page_title="W7 Academy - Assistente Especialista",
-    page_icon="🧠",
-    layout="wide"
-)
+# ======================================================
+# INTERFACE DO USUÁRIO (CHAT)
+# ======================================================
+st.title("💪 W7 Academy - Assistente IA")
+st.caption("Tire suas dúvidas técnicas baseadas na metodologia oficial da W7 Academy.")
 
-st.title("🧠 W7 Academy | Consultor Científico & Cinesiologia")
-st.caption("Sistema inteligente alimentado com a base de conhecimento oficial de lesões e reabilitação.")
-
-# Inicializa o histórico de mensagens do chat na tela
 if "mensagens" not in st.session_state:
-    st.session_state.mensagens = [
-        {
-            "role": "assistant",
-            "content": "Olá! Sou o assistente oficial da W7 Academy. Pode fazer sua pergunta técnica sobre ombro, cotovelo, joelho, coluna ou reabilitação!"
-        }
+    st.session_state["mensagens"] = [
+        {"role": "assistant", "content": "Olá! Sou o assistente oficial da W7 Academy. Pode fazer sua pergunta técnica sobre ombro, cotovelo, joelho, coluna ou reabilitação!"}
     ]
 
-# Renderiza o histórico de conversas em balões
-for msg in st.session_state.mensagens:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+for msg in st.session_state["mensagens"]:
+    st.chat_message(msg["role"]).write(msg["content"])
 
-# Caixa de input fixada na base (ao dar Enter, envia sozinho)
-if prompt_usuario := st.chat_input("Digite sua dúvida técnica baseada na apostila..."):
-    # Adiciona a mensagem do usuário na tela
-    st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
-    with st.chat_message("user"):
-        st.markdown(prompt_usuario)
-        
-    # Processa a resposta usando o Cérebro RAG da W7
+if prompt := st.chat_input("Digite sua pergunta técnica aqui..."):
+    st.session_state["mensagens"].append({"role": "user", "content": prompt})
+    st.chat_message("user").write(prompt)
+
     with st.chat_message("assistant"):
-        with st.spinner("Buscando diretrizes na apostila e acionando o Gemini 3.6 Flash..."):
-            resposta_ia = consultar_cerebro_w7(prompt_usuario)
-            st.markdown(resposta_ia)
-            
-    # Salva a resposta no histórico
-    st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
+        with st.spinner("Consultando apostila e gerando resposta..."):
+            resposta_ia = consultar_cerebro_w7(prompt)
+            st.write(resposta_ia)
+
+    st.session_state["mensagens"].append({"role": "assistant", "content": resposta_ia})
