@@ -128,17 +128,17 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
         if not texto_busca:
             return "Por favor, digite uma dúvida válida."
 
-                colecao = obter_colecao()
-    
-                resultados = colecao.query(
-                    query_texts=[texto_busca],
-                    n_results=6
-                )
-        
-                docs_brutos = resultados.get('documents', [[]])[0] if resultados.get('documents') else []
-                documentos = [d for d in docs_brutos if isinstance(d, str) and d.strip()]
-        
-                contexto_recuperado = "\n\n---\n\n".join(documentos) if documentos else "Nenhum trecho correspondente encontrado na apostila."
+        colecao = obter_colecao()
+
+        resultados = colecao.query(
+            query_texts=[texto_busca],
+            n_results=6
+        )
+
+        docs_brutos = resultados.get('documents', [[]])[0] if resultados.get('documents') else []
+        documentos = [d for d in docs_brutos if isinstance(d, str) and d.strip()]
+
+        contexto_recuperado = "\n\n---\n\n".join(documentos) if documentos else "Nenhum trecho correspondente encontrado na apostila."
 
         return executar_consulta_ia(texto_busca, contexto_recuperado)
     except Exception as erro:
