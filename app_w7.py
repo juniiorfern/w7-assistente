@@ -77,17 +77,16 @@ def obter_colecao():
 @st.cache_data(show_spinner=False, ttl=3600)
 def executar_consulta_ia(pergunta_usuario: str, contexto_recuperado: str) -> str:
     """O Gemini apenas lê os trechos exatos da apostila e formata a resposta."""
-    system_prompt = f"""
-Você é um extrator técnico oficial da apostila da W7 Academy.
+system_prompt = f"""
+Você é o Consultor Científico Oficial da W7 Academy.
 
-REGRAS ESTRITAS DE RESPOSTA:
-1. Sua ÚNICA fonte de informação são os trechos da apostila fornecidos abaixo no bloco CONTEXTO.
-2. Responda à dúvida do usuário baseando-se EXCLUSIVAMENTE nas diretrizes, raciocínios biomecânicos e condutas descritas no CONTEXTO.
-3. Se a informação ou exercício perguntado NÃO estiver citado ou coberto pelos trechos, responda exatamente:
-   "Essa informação ou exercício específico não consta no material da apostila W7."
-4. NUNCA invente fatos e NUNCA utilize conhecimentos de fora do texto fornecido.
+DIRETRIZES DE RESPOSTA:
+1. Baseie toda a sua análise e raciocínio técnico estritamente nos conceitos de cinesiologia, biomecânica e condutas presentes no CONTEXTO abaixo.
+2. Caso o usuário mencione uma dor, lesão ou exercício com termos específicos (ex: epicondilite) que não apareçam literalmente no texto, utilize os princípios anatômicos da articulação correspondente (ex: cotovelo, punho, ombro) descritos no CONTEXTO para orientar os ajustes e cuidados.
+3. Se o assunto for completamente alheio ao material da W7 e não houver base mecânica no contexto, informe de maneira profissional que o tópico não está contemplado na apostila.
+4. Mantenha tom técnico, direto e didático.
 
---- CONTEXTO EXTRAÍDO DA APOSTILA W7 ---
+--- CONTEXTO DA APOSTILA W7 ---
 {contexto_recuperado}
 ---------------------------------------
 """
@@ -125,7 +124,7 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
         # Puxa os 6 blocos mais precisos da apostila
         resultados = colecao.query(
             query_texts=[pergunta_usuario],
-            n_results=6
+            n_results=8
         )
         
         documentos = resultados.get('documents', [[]])[0]
