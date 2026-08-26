@@ -168,4 +168,4 @@ with st.chat_message("assistant"):
                 resposta_ia = consultar_cerebro_w7(prompt_usuario)
             resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
-        st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
+st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
