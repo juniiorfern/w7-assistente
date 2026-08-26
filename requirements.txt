@@ -2,4 +2,4 @@ streamlit
 google-genai
 chromadb
 pypdf
-anthropic
+
