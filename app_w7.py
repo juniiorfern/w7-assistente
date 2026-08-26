@@ -122,7 +122,7 @@ def stream_texto(texto: str):
         yield palavra + " "
         time.sleep(0.02)
 
-def consultar_cerebro_w7(pergunta_usuario: str) -> str:
+def consultar_cerebro_w7(pergunta_usuario: str, nome_usuario: str = "Aluno") -> str:
     try:
         texto_busca = str(pergunta_usuario).strip()
         if not texto_busca:
@@ -140,36 +140,70 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
 
         contexto_recuperado = "\n\n---\n\n".join(documentos) if documentos else "Nenhum trecho correspondente encontrado na apostila."
 
-        return executar_consulta_ia(texto_busca, contexto_recuperado)
+        # Prompt com a personalidade parceira do Jimmy
+        pergunta_com_instrucao = (
+            f"Você é o Jimmy, parceiro de estudos amigável e especialista da W7 Academy. "
+            f"Você está respondendo para {nome_usuario}. "
+            f"Se a pergunta for técnica, complexa ou exigir análise profunda, faça um breve comentário amigável e empolgado no início chamando a pessoa pelo nome (ex: 'Boa pergunta, {nome_usuario}!', 'Essa pegadinha é ótima, {nome_usuario}...'). "
+            f"Em seguida, entregue a resposta técnica, clara e direta baseada na apostila.\n\n"
+            f"Dúvida de {nome_usuario}: {texto_busca}"
+        )
+
+        return executar_consulta_ia(pergunta_com_instrucao, contexto_recuperado)
     except Exception as erro:
         return f"Erro ao consultar a base de dados: {str(erro)}"
 
 # ==========================================
 # 4. INTERFACE DO USUÁRIO
 # ==========================================
-st.title("🧠 W7 Academy | Consultor Científico")
-st.caption("Assistente especialista baseado no conteúdo oficial da apostila.")
+
+ICONE_ASSISTENTE = "🧠"
+ICONE_USUARIO = "👤"
+
+st.title("🧠 Jimmy | W7 Academy")
+st.caption("Seu parceiro de estudos em biomecânica e cinesiologia.")
+
+# Controle de estado do nome e histórico
+if "nome_usuario" not in st.session_state:
+    st.session_state.nome_usuario = None
 
 if "mensagens" not in st.session_state or not st.session_state.mensagens:
     st.session_state.mensagens = [
         {
             "role": "assistant",
-            "content": "W7 Academy",
-            "fontes": []
+            "content": "Fala! Eu sou o **Jimmy**, seu parceiro de estudos aqui na **W7 Academy** 🧠💪\n\nAntes de começarmos, qual é o seu nome?"
         }
     ]
+
+# Exibição do histórico de mensagens
 for msg in st.session_state.mensagens:
-    with st.chat_message(msg["role"]):
+    icone = ICONE_ASSISTENTE if msg["role"] == "assistant" else ICONE_USUARIO
+    with st.chat_message(msg["role"], avatar=icone):
         st.markdown(msg["content"])
 
-if prompt_usuario := st.chat_input("Digite sua dúvida sobre a apostila..."):
+# Processamento das entradas do usuário
+if prompt_usuario := st.chat_input("Digite sua resposta ou dúvida aqui..."):
     st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=ICONE_USUARIO):
         st.markdown(prompt_usuario)
-        
-with st.chat_message("assistant"):
-            with st.spinner("Localizando trechos na apostila oficial da W7..."):
-                resposta_ia = consultar_cerebro_w7(prompt_usuario)
+
+    # 1ª Interação: Capturar e gravar o nome da pessoa
+    if not st.session_state.nome_usuario:
+        # Extrai apenas o nome de forma limpa (ex: "Sou a Andreia" -> "Andreia")
+        nome_limpo = prompt_usuario.replace("Meu nome é", "").replace("meu nome é", "").replace("Sou o", "").replace("Sou a", "").strip()
+        nome_formatado = nome_limpo.split()[0].title() if nome_limpo else "Aluno"
+        st.session_state.nome_usuario = nome_formatado
+
+        boas_vindas = f"Prazer, **{nome_formatado}**! 🚀 Agora sim.\n\nQual dúvida sobre cinesiologia, biomecânica ou exercícios vamos desvendar hoje?"
+        with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
+            st.markdown(boas_vindas)
+        st.session_state.mensagens.append({"role": "assistant", "content": boas_vindas})
+
+    # Interações seguintes: Consultas técnicas da apostila
+    else:
+        with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
+            with st.spinner(f"Jimmy consultando a apostila para {st.session_state.nome_usuario}..."):
+                resposta_ia = consultar_cerebro_w7(prompt_usuario, st.session_state.nome_usuario)
             resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
-st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
+        st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
