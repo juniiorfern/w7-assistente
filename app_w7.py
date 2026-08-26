@@ -1,98 +1,167 @@
 import os
+import time
+from pathlib import Path
 import streamlit as st
 import chromadb
 from google import genai
 from google.genai import types
 from pypdf import PdfReader
 
-# Configuracao da pagina Streamlit
-st.set_page_config(page_title="W7 Academy Assistente", page_icon="💪", layout="centered")
+# ==========================================
+# 1. CONFIGURAÇÃO DA PÁGINA
+# ==========================================
+st.set_page_config(
+    page_title="W7 Academy | Consultor da Apostila",
+    page_icon="🧠",
+    layout="wide"
+)
 
-# ======================================================
-# CONFIGURACAO DO GEMINI E BANCO DE DADOS
-# ======================================================
+# ==========================================
+# 2. CONEXÃO & BANCO VETORIAL COM CHUNKING
+# ==========================================
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
-DIRETORIO_BANCO = os.path.join(DIRETORIO_ATUAL, "w7_database")
-CAMINHO_PDF = os.path.join(DIRETORIO_ATUAL, "apostila.pdf")
+DIRETORIO_ATUAL = Path(__file__).resolve().parent
+DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database"
+CAMINHO_PDF = DIRETORIO_ATUAL / "apostila.pdf"
+
+def fatiar_texto(texto: str, tamanho_bloco: int = 700, sobreposicao: int = 150) -> list[str]:
+    """Divide o texto em blocos menores com sobreposição para não cortar frases no meio."""
+    blocos = []
+    inicio = 0
+    tamanho_total = len(texto)
+    
+    while inicio < tamanho_total:
+        fim = inicio + tamanho_bloco
+        bloco = texto[inicio:fim].strip()
+        if bloco:
+            blocos.append(bloco)
+        inicio += tamanho_bloco - sobreposicao
+    return blocos
 
 @st.cache_resource
 def obter_colecao():
-    """Garante que a colecao exista e esteja carregada com a apostila."""
-    cliente_chroma = chromadb.PersistentClient(path=DIRETORIO_BANCO)
+    """Lê a apostila, fatia em parágrafos precisos e indexa no ChromaDB."""
+    cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
     colecao = cliente_chroma.get_or_create_collection(name="conhecimento_w7")
     
-    # Se a colecao estiver vazia na nuvem, processa o PDF automaticamente
-    if colecao.count() == 0 and os.path.exists(CAMINHO_PDF):
-        leitor = PdfReader(CAMINHO_PDF)
+    if colecao.count() == 0 and CAMINHO_PDF.exists():
+        leitor = PdfReader(str(CAMINHO_PDF))
         docs, metas, ids = [], [], []
-        for i, pagina in enumerate(leitor.pages):
-            texto = pagina.extract_text()
-            if texto and texto.strip():
-                docs.append(texto.strip())
-                metas.append({"pagina": i + 1})
-                ids.append(f"pag_{i + 1}")
+        
+        for num_pag, pagina in enumerate(leitor.pages, start=1):
+            texto = pagina.extract_text() or ""
+            if texto.strip():
+                pedacos = fatiar_texto(texto.strip())
+                for idx, pedaco in enumerate(pedacos):
+                    docs.append(pedaco)
+                    metas.append({"pagina": num_pag, "bloco": idx + 1})
+                    ids.append(f"pag_{num_pag}_b_{idx + 1}")
+                    
         if docs:
-            colecao.add(documents=docs, metadatas=metas, ids=ids)
+            # Insere os blocos em lotes para garantir estabilidade
+            tamanho_lote = 100
+            for i in range(0, len(docs), tamanho_lote):
+                colecao.add(
+                    documents=docs[i:i + tamanho_lote],
+                    metadatas=metas[i:i + tamanho_lote],
+                    ids=ids[i:i + tamanho_lote]
+                )
             
     return colecao
 
-def consultar_cerebro_w7(pergunta_usuario):
+# ==========================================
+# 3. EXTRAÇÃO ESTRITA DA APOSTILA
+# ==========================================
+@st.cache_data(show_spinner=False, ttl=3600)
+def executar_consulta_ia(pergunta_usuario: str, contexto_recuperado: str) -> str:
+    """O Gemini apenas lê os trechos exatos da apostila e formata a resposta."""
+    system_prompt = f"""
+Você é um extrator técnico oficial da apostila da W7 Academy.
+
+REGRAS ESTRITAS DE RESPOSTA:
+1. Sua ÚNICA fonte de informação são os trechos da apostila fornecidos abaixo no bloco CONTEXTO.
+2. Responda à dúvida do usuário baseando-se EXCLUSIVAMENTE nas diretrizes, raciocínios biomecânicos e condutas descritas no CONTEXTO.
+3. Se a informação ou exercício perguntado NÃO estiver citado ou coberto pelos trechos, responda exatamente:
+   "Essa informação ou exercício específico não consta no material da apostila W7."
+4. NUNCA invente fatos e NUNCA utilize conhecimentos de fora do texto fornecido.
+
+--- CONTEXTO EXTRAÍDO DA APOSTILA W7 ---
+{contexto_recuperado}
+---------------------------------------
+"""
+    tentativas = 3
+    intervalo = 4
+
+    for tentativa in range(tentativas):
+        try:
+            resposta = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=pergunta_usuario,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.1,  # Temperatura mínima para eliminar alucinações
+                ),
+            )
+            return resposta.text
+
+        except Exception as erro:
+            erro_msg = str(erro)
+            if ("429" in erro_msg or "RESOURCE_EXHAUSTED" in erro_msg) and tentativa < tentativas - 1:
+                time.sleep(intervalo)
+                intervalo *= 2
+                continue
+            
+            if "429" in erro_msg or "RESOURCE_EXHAUSTED" in erro_msg:
+                return "⏳ O servidor atingiu a cota momentânea de requisições. Aguarde 30 segundos e envie sua dúvida novamente."
+            
+            return f"⚠️ Instabilidade temporária. Detalhes: {erro_msg[:80]}"
+
+def consultar_cerebro_w7(pergunta_usuario: str) -> str:
     try:
         colecao = obter_colecao()
         
-        # 1. Busca os trechos mais relevantes
-        resultado = colecao.query(query_texts=[pergunta_usuario], n_results=3)
-        contexto_lista = resultado.get("documents", [[]])[0]
-        contexto = "\n\n---\n\n".join(contexto_lista) if contexto_lista else "Nenhum trecho especifico encontrado."
-
-        # 2. Prompt com contexto da apostila
-        prompt_final = f"""
-Voce e o assistente de inteligencia artificial oficial da W7 Academy, especializado em biomecanica, treinamento resistido, prevencao de lesoes e reabilitacao fisica.
-
-Use estritamente as informacoes do contexto abaixo para responder a duvida do usuario com precisao, clareza e autoridade tecnica.
-
---- CONTEXTO DA APOSTILA W7 ---
-{contexto}
--------------------------------
-
-Pergunta do usuario: {pergunta_usuario}
-
-Resposta:
-"""
-        resposta = client.models.generate_content(
-            model="gemini-3.6-flash",
-            contents=prompt_final,
-            config=types.GenerateContentConfig(temperature=0.3)
+        # Puxa os 6 blocos mais precisos da apostila
+        resultados = colecao.query(
+            query_texts=[pergunta_usuario],
+            n_results=6
         )
-        return resposta.text
+        
+        documentos = resultados.get('documents', [[]])[0]
+        contexto_recuperado = "\n\n---\n\n".join(documentos) if documentos else "Nenhum trecho correspondente localizado."
+        
+        return executar_consulta_ia(pergunta_usuario, contexto_recuperado)
 
     except Exception as e:
-        return f"⚠️ Erro ao consultar a base de conhecimento: {str(e)}"
+        return f"⚠️ Erro ao consultar a base de dados: {str(e)}"
 
-# ======================================================
-# INTERFACE DO USUARIO (CHAT)
-# ======================================================
-st.title("💪 W7 Academy - Assistente IA")
-st.caption("Tire suas duvidas tecnicas baseadas na metodologia oficial da W7 Academy.")
+# ==========================================
+# 4. INTERFACE DO USUÁRIO
+# ==========================================
+st.title("🧠 W7 Academy | Consultor Científico")
+st.caption("Assistente especialista baseado no conteúdo oficial da apostila.")
 
 if "mensagens" not in st.session_state:
-    st.session_state["mensagens"] = [
-        {"role": "assistant", "content": "Olá! Sou o assistente oficial da W7 Academy. Pode fazer sua pergunta técnica sobre ombro, cotovelo, joelho, coluna ou reabilitação!"}
+    st.session_state.mensagens = [
+        {
+            "role": "assistant",
+            "content": "Olá! Sou o assistente oficial da W7 Academy. Qual tópico técnico da apostila você quer checar?"
+        }
     ]
 
-for msg in st.session_state["mensagens"]:
-    st.chat_message(msg["role"]).write(msg["content"])
+for msg in st.session_state.mensagens:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if prompt := st.chat_input("Digite sua pergunta técnica aqui..."):
-    st.session_state["mensagens"].append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-
+if prompt_usuario := st.chat_input("Digite sua dúvida sobre a apostila..."):
+    st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
+    with st.chat_message("user"):
+        st.markdown(prompt_usuario)
+        
     with st.chat_message("assistant"):
-        with st.spinner("Consultando apostila e gerando resposta..."):
-            resposta_ia = consultar_cerebro_w7(prompt)
-            st.write(resposta_ia)
-
-    st.session_state["mensagens"].append({"role": "assistant", "content": resposta_ia})
+        with st.spinner("Localizando trechos na apostila oficial da W7..."):
+            resposta_ia = consultar_cerebro_w7(prompt_usuario)
+            st.markdown(resposta_ia)
+            
+    st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
