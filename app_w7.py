@@ -116,6 +116,12 @@ DIRETRIZES DE RESPOSTA:
             
             return f"⚠️ Instabilidade temporária. Detalhes: {erro_msg[:80]}"
 
+def stream_texto(texto: str):
+    """Gera o efeito de digitação suave palavra por palavra."""
+    for palavra in texto.split(" "):
+        yield palavra + " "
+        time.sleep(0.02)
+
 def consultar_cerebro_w7(pergunta_usuario: str) -> str:
     try:
         colecao = obter_colecao()
@@ -157,9 +163,9 @@ if prompt_usuario := st.chat_input("Digite sua dúvida sobre a apostila..."):
     with st.chat_message("user"):
         st.markdown(prompt_usuario)
         
-    with st.chat_message("assistant"):
-        with st.spinner("Localizando trechos na apostila oficial da W7..."):
-            resposta_ia = consultar_cerebro_w7(prompt_usuario)
-            st.markdown(resposta_ia)
-            
-    st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
+with st.chat_message("assistant"):
+            with st.spinner("Localizando trechos na apostila oficial da W7..."):
+                resposta_ia = consultar_cerebro_w7(prompt_usuario)
+            resposta_ia = st.write_stream(stream_texto(resposta_ia))
+
+        st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
