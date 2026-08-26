@@ -76,8 +76,7 @@ def obter_colecao():
 # ==========================================
 @st.cache_data(show_spinner=False, ttl=3600)
 def executar_consulta_ia(pergunta_usuario: str, contexto_recuperado: str) -> str:
-    """O Gemini apenas lê os trechos exatos da apostila e formata a resposta."""
-system_prompt = f"""
+    system_prompt = f"""
 Você é o Consultor Científico Oficial da W7 Academy.
 
 DIRETRIZES DE RESPOSTA:
@@ -96,11 +95,11 @@ DIRETRIZES DE RESPOSTA:
     for tentativa in range(tentativas):
         try:
             resposta = client.models.generate_content(
-                model="gemini-3.6-flash",
+                model="gemini-1.5-flash",
                 contents=pergunta_usuario,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                    temperature=0.1,  # Temperatura mínima para eliminar alucinações
+                    temperature=0.1,
                 ),
             )
             return resposta.text
