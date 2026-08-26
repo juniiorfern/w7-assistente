@@ -140,14 +140,14 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
 st.title("🧠 W7 Academy | Consultor Científico")
 st.caption("Assistente especialista baseado no conteúdo oficial da apostila.")
 
-if "mensagens" not in st.session_state:
+if "mensagens" not in st.session_state or not st.session_state.mensagens:
     st.session_state.mensagens = [
         {
             "role": "assistant",
-            "content": "Olá! Sou o assistente oficial da W7 Academy. Qual tópico técnico da apostila você quer checar?"
+            "content": "W7 Academy",
+            "fontes": []
         }
     ]
-
 for msg in st.session_state.mensagens:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
