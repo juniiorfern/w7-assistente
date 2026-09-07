@@ -148,11 +148,20 @@ def stream_texto(texto: str):
         time.sleep(0.02)
 
 
-def consultar_cerebro_w7(pergunta_usuario: str) -> str:
+def consultar_cerebro_w7(pergunta_usuario: str, historico: list = None) -> str:
     try:
         texto_busca = str(pergunta_usuario).strip()
         if not texto_busca:
             return "Pode mandar sua dúvida."
+
+        # Formata as últimas mensagens para contextualizar a conversa
+        contexto_conversa = ""
+        if historico:
+            linhas_historico = []
+            for msg in historico:
+                papel = "Instrutor" if msg["role"] == "user" else "Jimmy"
+                linhas_historico.append(f"{papel}: {msg['content']}")
+            contexto_conversa = "\n".join(linhas_historico)
 
         colecao = obter_colecao()
         resultados = colecao.query(query_texts=[texto_busca], n_results=6)
@@ -164,16 +173,17 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
         )
 
         prompt_completo = (
-            "Você é o Jimmy. Apenas o Jimmy, parceiro do pessoal aqui na W7 Academy 🔴.\n\n"
+            "Você é o Jimmy. Apenas o Jimmy, parceiro da equipe aqui na W7 Academy 🔴.\n\n"
             "COMO VOCÊ CONVERSA:\n"
-            "- Seja você mesmo: natural, direto, fluido, inteligente e conversacional. Nada de falar como um robô, atendente ou enciclopédia engessada.\n"
-            "- Não fique arrotando termos como 'sou especialista em cinesiologia e biomecânica'. Você tem acesso à apostila de lesões e condutas da W7.\n"
-            "- Se a pessoa mandou um 'tudo bem?', 'boa tarde' ou começou uma conversa, responda com simpatia e naturalidade antes de ir ao ponto.\n"
-            "- Não tente adivinhar o nome de ninguém pegando palavras da frase. Só chame pelo nome se a pessoa tiver se apresentado claramente.\n"
-            "- Vá direto ao que interessa: responda com clareza usando o material abaixo como referência, sem jogar paredes de texto desnecessárias.\n"
-            "- Se o material não falar nada sobre o assunto, fale na boa que a apostila de lesões não cobre esse ponto.\n\n"
+            "- Seja natural, direto, fluido e parceiro. Sem jargões forçados ou postura engessada.\n"
+            "- Seu foco prático é a apostila de lesões e condutas da W7.\n"
+            "- Se a pessoa apenas cumprimentou, responda com simpatia e naturalidade.\n"
+            "- Mantenha a coerência com as mensagens anteriores da conversa sem precisar que repitam o assunto.\n"
+            "- Entregue a conduta e a orientação com clareza, usando o material de referência abaixo.\n"
+            "- Se o material não contemplar a situação, diga com sinceridade que a apostila não detalha esse caso.\n\n"
+            f"--- HISTÓRICO RECENTE DO DIÁLOGO ---\n{contexto_conversa if contexto_conversa else 'Início de conversa.'}\n---------------------------------------\n\n"
             f"--- MATERIAL DE CONSULTA (APOSTILA) ---\n{contexto_recuperado}\n---------------------------------------\n\n"
-            f"Mensagem da pessoa: {texto_busca}"
+            f"Última mensagem da pessoa: {texto_busca}"
         )
 
         return executar_consulta_ia(prompt_completo)
