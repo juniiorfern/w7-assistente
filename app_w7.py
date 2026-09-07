@@ -23,14 +23,13 @@ st.set_page_config(
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-MODELO = "gemini-2.5-flash"
+MODELO = "gemini-3.6-flash"
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
 DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database"
 
 FONTES = [
-    {"arquivo": DIRETORIO_ATUAL / "apostila.pdf", "nome_fonte": "apostila_w7"},
-    # {"arquivo": DIRETORIO_ATUAL / "ebook_biomecanica.pdf", "nome_fonte": "ebook_bruno_leitao"},
+    {"arquivo": DIRETORIO_ATUAL / "apostila.pdf", "nome_fonte": "apostila_lesoes_w7"},
 ]
 
 PADRAO_CAPITULO = re.compile(r"CAP[ÍI]TULO\s+\d+\s*[—\-]\s*(.+)", re.IGNORECASE)
@@ -38,34 +37,7 @@ MARCADORES_BIBLIOGRAFIA = ("referencias bibliográficas", "referências bibliogr
 
 
 # ==========================================
-# 3. IDENTIFICAÇÃO DO CRIADOR (JÚNIOR)
-# ==========================================
-# 1. Reconhece via link direto: seu-link.streamlit.app/?admin=junior
-param_admin = st.query_params.get("admin") == "junior"
-
-if "modo_criador" not in st.session_state:
-    st.session_state.modo_criador = param_admin
-
-# Barra lateral discreta para controle de modo
-with st.sidebar:
-    st.markdown("### ⚙️ Painel de Acesso")
-    if st.session_state.modo_criador:
-        st.success("🟢 Modo Criador Ativo (Júnior)")
-        if st.button("Alternar para Modo Aluno"):
-            st.session_state.modo_criador = False
-            st.session_state.mensagens = []
-            st.rerun()
-    else:
-        st.info("Modo Padrão (Aluno / Professor)")
-        senha_acesso = st.text_input("Acesso Criador", type="password", placeholder="Chave")
-        if senha_acesso == "junior77":  # Você pode trocar sua senha aqui
-            st.session_state.modo_criador = True
-            st.session_state.mensagens = []
-            st.rerun()
-
-
-# ==========================================
-# 4. INDEXAÇÃO COM METADADOS
+# 3. INDEXAÇÃO COM METADADOS
 # ==========================================
 def fatiar_texto(texto: str, tamanho_bloco: int = 700, sobreposicao: int = 150) -> list[str]:
     blocos = []
@@ -139,7 +111,7 @@ def obter_colecao():
 
 
 # ==========================================
-# 5. CONSULTA À IA (com personalização de papel)
+# 4. CONSULTA À IA (com retry e tom fluido)
 # ==========================================
 def executar_consulta_ia(prompt_completo: str) -> str:
     tentativas = 3
@@ -166,7 +138,7 @@ def executar_consulta_ia(prompt_completo: str) -> str:
                 continue
 
             if erro_temporario:
-                return "⏳ O servidor do Gemini está instável no momento. Aguarde alguns segundos e envie novamente."
+                return "O servidor deu uma oscilada rápida. Manda a mensagem de novo em alguns segundos."
 
             return f"⚠️ Instabilidade temporária. Detalhes: {erro_msg[:80]}"
 
@@ -177,11 +149,11 @@ def stream_texto(texto: str):
         time.sleep(0.02)
 
 
-def consultar_cerebro_w7(pergunta_usuario: str, eh_criador: bool = False) -> str:
+def consultar_cerebro_w7(pergunta_usuario: str) -> str:
     try:
         texto_busca = str(pergunta_usuario).strip()
         if not texto_busca:
-            return "Por favor, digite uma dúvida válida."
+            return "Pode mandar sua dúvida."
 
         colecao = obter_colecao()
         resultados = colecao.query(query_texts=[texto_busca], n_results=6)
@@ -192,38 +164,26 @@ def consultar_cerebro_w7(pergunta_usuario: str, eh_criador: bool = False) -> str
             "\n\n---\n\n".join(documentos) if documentos else "Nenhum trecho correspondente encontrado."
         )
 
-        # Instrução bifurcada conforme o interlocutor
-        if eh_criador:
-            prompt_completo = (
-                "Você é o Jimmy, assistente técnico de inteligência da W7 Academy 🧠.\n"
-                "Você está dialogando DIRETAMENTE com seu criador e coordenador técnico: Júnior.\n\n"
-                "DIRETRIZES DE COMUNICAÇÃO COM O CRIADOR (JÚNIOR):\n"
-                "1. Trate-o pelo nome (Júnior) de forma próxima, como um copiloto e consultor sênior de biomecânica.\n"
-                "2. Vá direto ao ponto. Não use didática básica ou respostas mastigadas para iniciantes.\n"
-                "3. Entregue raciocínio clínico refinado, aprofunde em vetores, torques articulares, mecânica muscular e estratégias de intervenção.\n"
-                "4. Seja sincero, crítico e traga as nuances técnicas mais avançadas baseadas no contexto e nas evidências.\n\n"
-                f"--- CONTEXTO TÉCNICO ---\n{contexto_recuperado}\n--------------------------\n\n"
-                f"Mensagem do Júnior: {texto_busca}"
-            )
-        else:
-            prompt_completo = (
-                "Você é o Jimmy, consultor especialista e parceiro de estudos da W7 Academy.\n\n"
-                "DIRETRIZES DE COMUNICAÇÃO:\n"
-                "1. REGRA DO NOME: nunca tente adivinhar o nome de quem pergunta. Nunca use saudações como nomes.\n"
-                "2. DIDÁTICA EM CAMADAS: conciso e direto ao ponto. 1 a 2 parágrafos curtos ou tópicos diretos baseados na apostila.\n"
-                "3. GANCHO FINAL: conclua sempre com uma pergunta curta oferecendo o próximo passo.\n"
-                "4. Se o assunto não constar no material, informe educadamente que não está contemplado.\n\n"
-                f"--- CONTEXTO DA APOSTILA ---\n{contexto_recuperado}\n---------------------------------------\n\n"
-                f"Dúvida do usuário: {texto_busca}"
-            )
+        prompt_completo = (
+            "Você é o Jimmy. Apenas o Jimmy, parceiro do pessoal aqui na W7 Academy 🟢.\n\n"
+            "COMO VOCÊ CONVERSA:\n"
+            "- Seja você mesmo: natural, direto, fluido, inteligente e conversacional. Nada de falar como um robô, atendente ou enciclopédia engessada.\n"
+            "- Não fique arrotando termos como 'sou especialista em cinesiologia e biomecânica'. Você tem acesso à apostila de lesões e condutas da W7.\n"
+            "- Se a pessoa mandou um 'tudo bem?', 'boa tarde' ou começou uma conversa, responda com simpatia e naturalidade antes de ir ao ponto.\n"
+            "- Não tente adivinhar o nome de ninguém pegando palavras da frase. Só chame pelo nome se a pessoa tiver se apresentado claramente.\n"
+            "- Vá direto ao que interessa: responda com clareza usando o material abaixo como referência, sem jogar paredes de texto desnecessárias.\n"
+            "- Se o material não falar nada sobre o assunto, fale na boa que a apostila de lesões não cobre esse ponto.\n\n"
+            f"--- MATERIAL DE CONSULTA (APOSTILA) ---\n{contexto_recuperado}\n---------------------------------------\n\n"
+            f"Mensagem da pessoa: {texto_busca}"
+        )
 
         return executar_consulta_ia(prompt_completo)
     except Exception as erro:
-        return f"Erro ao consultar a base de dados: {str(erro)}"
+        return f"Erro ao consultar o material: {str(erro)}"
 
 
 # ==========================================
-# 6. INTERFACE DO USUÁRIO
+# 5. INTERFACE DO USUÁRIO
 # ==========================================
 ICONE_ASSISTENTE = "🟢"
 ICONE_USUARIO = "👤"
@@ -244,42 +204,33 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if st.session_state.modo_criador:
-    st.title("🟢 Jimmy | Central de Comando (Modo Criador)")
-    st.caption("Conectado com Júnior | Engenharia Biomecânica & IA W7 Academy")
-else:
-    st.title("🟢 Jimmy | W7 Academy")
-    st.caption("Seu parceiro de estudos em biomecânica, cinesiologia e treinamento.")
+st.title("🟢 Jimmy | W7 Academy")
+st.caption("Tire dúvidas e consulte as condutas com base no material da W7.")
 
-# Mensagem inicial adaptada ao usuário
 if "mensagens" not in st.session_state or not st.session_state.mensagens:
-    if st.session_state.modo_criador:
-        texto_abertura = (
-            "Fala, **Júnior**! Central pronta por aqui 🟢🧠\n\n"
-            "Qual análise biomecânica, caso de aluno ou calibração de exercício vamos rodar agora?"
-        )
-    else:
-        texto_abertura = (
-            "Fala! Eu sou o **Jimmy**, seu parceiro de estudos aqui na **W7 Academy** 🟢💪\n\n"
-            "Manda sua dúvida técnica sobre cinesiologia, biomecânica ou exercícios."
-        )
-
-    st.session_state.mensagens = [{"role": "assistant", "content": texto_abertura}]
+    st.session_state.mensagens = [
+        {
+            "role": "assistant",
+            "content": (
+                "Fala! Eu sou o **Jimmy** 🟢💪\n\n"
+                "Tô por aqui pra ajudar com as dúvidas sobre lesões e condutas do material da W7. Como posso te ajudar hoje?"
+            ),
+        }
+    ]
 
 for msg in st.session_state.mensagens:
     icone = ICONE_ASSISTENTE if msg["role"] == "assistant" else ICONE_USUARIO
     with st.chat_message(msg["role"], avatar=icone):
         st.markdown(msg["content"])
 
-if prompt_usuario := st.chat_input("Manda sua dúvida pro Jimmy..."):
+if prompt_usuario := st.chat_input("Fala comigo..."):
     st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
     with st.chat_message("user", avatar=ICONE_USUARIO):
         st.markdown(prompt_usuario)
 
     with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
-        spinner_texto = "Jimmy processando dados técnicos para Júnior..." if st.session_state.modo_criador else "Jimmy consultando a apostila... 🟢"
-        with st.spinner(spinner_texto):
-            resposta_ia = consultar_cerebro_w7(prompt_usuario, eh_criador=st.session_state.modo_criador)
+        with st.spinner("Jimmy buscando no material... 🟢"):
+            resposta_ia = consultar_cerebro_w7(prompt_usuario)
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
     st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
