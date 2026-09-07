@@ -260,13 +260,17 @@ for msg in st.session_state.mensagens:
         st.markdown(msg["content"])
 
 if prompt_usuario := st.chat_input("Tire sua dúvida com o Jimmy..."):
+    # 1. Pega as últimas 4 mensagens antes de adicionar a nova pergunta
+    historico_recente = st.session_state.mensagens[-4:] if len(st.session_state.mensagens) > 0 else []
+
     st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
     with st.chat_message("user", avatar=ICONE_USUARIO):
         st.markdown(prompt_usuario)
 
     with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
-        with st.spinner("Jimmy consultando o material W7..."):
-            resposta_ia = consultar_cerebro_w7(prompt_usuario)
+        with st.spinner("Jimmy consultando o material W7... 🔴"):
+            # 2. Envia a pergunta junto com o histórico recente
+            resposta_ia = consultar_cerebro_w7(prompt_usuario, historico=historico_recente)
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
     st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
