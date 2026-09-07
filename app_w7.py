@@ -13,10 +13,9 @@ from pypdf import PdfReader
 # ==========================================
 st.set_page_config(
     page_title="W7 Academy | Jimmy",
-    page_icon="🟢",
-    layout="wide"
+    page_icon="logo_w7.png",
+    layout="centered"
 )
-
 # ==========================================
 # 2. CONEXÃO & CONFIGURAÇÃO
 # ==========================================
@@ -185,35 +184,62 @@ def consultar_cerebro_w7(pergunta_usuario: str) -> str:
 # ==========================================
 # 5. INTERFACE DO USUÁRIO
 # ==========================================
-ICONE_ASSISTENTE = "🟢"
+# ==========================================
+# 5. INTERFACE DO USUÁRIO (Estilo W7: Preto & Vermelho)
+# ==========================================
+ICONE_ASSISTENTE = "logo_w7.png"
 ICONE_USUARIO = "👤"
 
 st.markdown(
     """
     <style>
-    [data-testid="stChatMessageAvatarCustom"] {
-        animation: pulsar-cerebro 2s infinite ease-in-out;
+    :root {
+        --primary-color: #ED1C24;
     }
-    @keyframes pulsar-cerebro {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.15); }
-        100% { transform: scale(1); }
+
+    .stChatInputContainer:focus-within {
+        border-color: #ED1C24 !important;
+        box-shadow: 0 0 8px rgba(237, 28, 36, 0.6) !important;
+    }
+
+    [data-testid="stChatMessageAvatarCustom"] img {
+        animation: pulsar-w7 2s infinite ease-in-out;
+        object-fit: contain;
+    }
+
+    @keyframes pulsar-w7 {
+        0% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(237, 28, 36, 0.4));
+        }
+        50% {
+            transform: scale(1.12);
+            filter: drop-shadow(0 0 10px rgba(237, 28, 36, 0.95));
+        }
+        100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(237, 28, 36, 0.4));
+        }
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("🟢 Jimmy | W7 Academy")
-st.caption("Tire dúvidas e consulte as condutas com base no material da W7.")
+col_logo, col_titulo = st.columns([1, 5])
+with col_logo:
+    st.image("logo_w7.png", width=70)
+with col_titulo:
+    st.title("Jimmy")
+    st.caption("Central de Condutas e Lesões | W7 Academy")
 
 if "mensagens" not in st.session_state or not st.session_state.mensagens:
     st.session_state.mensagens = [
         {
             "role": "assistant",
             "content": (
-                "Fala! Eu sou o **Jimmy** 🟢💪\n\n"
-                "Tô por aqui pra ajudar com as dúvidas sobre lesões e condutas do material da W7. Como posso te ajudar hoje?"
+                "Fala! Eu sou o **Jimmy**, parceiro da equipe aqui na **W7 Academy** 💪\n\n"
+                "Pode mandar sua dúvida sobre lesões ou casos de treino que analisamos com base no material da casa."
             ),
         }
     ]
@@ -223,13 +249,13 @@ for msg in st.session_state.mensagens:
     with st.chat_message(msg["role"], avatar=icone):
         st.markdown(msg["content"])
 
-if prompt_usuario := st.chat_input("Fala comigo..."):
+if prompt_usuario := st.chat_input("Tire sua dúvida com o Jimmy..."):
     st.session_state.mensagens.append({"role": "user", "content": prompt_usuario})
     with st.chat_message("user", avatar=ICONE_USUARIO):
         st.markdown(prompt_usuario)
 
     with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
-        with st.spinner("Jimmy buscando no material... 🟢"):
+        with st.spinner("Jimmy consultando o material W7..."):
             resposta_ia = consultar_cerebro_w7(prompt_usuario)
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
