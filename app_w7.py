@@ -368,8 +368,8 @@ st.markdown(
                 <div class="status-ping"></div>
                 Base Clínica W7 • Conectada
             </div>
-            <h1 class="hud-title">JIMMY <span style="color:#ED1C24; font-size:18px;">PRO</span></h1>
-            <p class="hud-subtitle">Protocolo Oficial de Condutas & Biomecânica | Tijucas</p>
+           <h1 class="hud-title">JIMMY</h1>
+            <p class="hud-subtitle">Seu suporte diário para condutas com alunos que têm limitações ou dores</p>
         </div>
     </div>
     """,
