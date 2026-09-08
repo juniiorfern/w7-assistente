@@ -139,9 +139,6 @@ def executar_consulta_ia(prompt_completo: str) -> str:
                 intervalo *= 2
                 continue
 
-            if erro_temporario:
-                return "O servidor deu uma oscilada rápida. Manda a mensagem de novo em alguns segundos."
-
             return f"Erro real da IA: {erro_msg}"
 
 
