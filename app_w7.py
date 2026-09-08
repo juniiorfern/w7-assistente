@@ -142,7 +142,7 @@ def executar_consulta_ia(prompt_completo: str) -> str:
             if erro_temporario:
                 return "O servidor deu uma oscilada rápida. Manda a mensagem de novo em alguns segundos."
 
-            return f"⚠️ Instabilidade temporária. Detalhes: {erro_msg[:80]}"
+            return f"Erro real da IA: {erro_msg}"
 
 
 def stream_texto(texto: str):
