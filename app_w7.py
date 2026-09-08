@@ -384,7 +384,7 @@ if "mensagens" not in st.session_state or not st.session_state.mensagens:
             "content": (
                 "Fala, time! **Jimmy** no posto. 🔴💪\n\n"
                 "A base de lesões e adaptações da **W7 Academy** está carregada e pronta. "
-                "Qual aluno ou situação de salão vamos blindar agora?"
+                "Qual aluno ou situação conversar agora?"
             ),
         }
     ]
@@ -418,7 +418,7 @@ if prompt_final:
         st.markdown(prompt_final)
 
     with st.chat_message("assistant", avatar=ICONE_ASSISTENTE):
-        with st.spinner("Jimmy processando conduta oficial... 🔴"):
+        with st.spinner("Jimmy está pensando... 🔴"):
             resposta_ia = consultar_cerebro_w7(prompt_final, historico=historico_recente)
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
