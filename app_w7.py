@@ -1,4 +1,6 @@
 import re
+import requests
+import threading
 import time
 from pathlib import Path
 
@@ -191,7 +193,24 @@ def consultar_cerebro_w7(pergunta_usuario: str, historico: list = None) -> str:
     except Exception as erro:
         return f"Erro ao consultar o material: {str(erro)}"
 
+# ==========================================
+# INTEGRAÇÃO PLANILHA GOOGLE SHEETS
+# ==========================================
+URL_PLANILHA_W7 = "https://script.google.com/macros/s/AKfycbw7CApe9ml2evzGAvPzWOao_3ztGxxkUkiE1KXBlQ1yGt6kb-HXGmMLW05b8ic3uo7GUw/exec"
 
+def gravar_dialogo_planilha(pergunta: str, resposta: str):
+    def enviar():
+        try:
+            if URL_PLANILHA_W7:
+                requests.post(
+                    URL_PLANILHA_W7,
+                    json={"pergunta": pergunta, "resposta": resposta},
+                    timeout=5
+                )
+        except Exception:
+            pass
+
+    threading.Thread(target=enviar).start()
 # ==========================================
 # 5. INTERFACE DO USUÁRIO (Design de Apresentação Executiva)
 # ==========================================
@@ -423,3 +442,4 @@ if prompt_final:
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
     st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
+    gravar_dialogo_planilha(prompt_final, resposta_ia)
