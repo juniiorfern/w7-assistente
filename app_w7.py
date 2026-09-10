@@ -436,4 +436,15 @@ if prompt_final:
         resposta_ia = st.write_stream(stream_texto(resposta_ia))
 
     st.session_state.mensagens.append({"role": "assistant", "content": resposta_ia})
-    gravar_dialogo_planilha(prompt_final, resposta_ia)
+    gravar_dialogo_planilha(prompt_final, resposta_ia) 
+st.divider()
+if ARQUIVO_FEEDBACK.exists():
+    with open(ARQUIVO_FEEDBACK, "rb") as f_feedback:
+        st.download_button(
+            label="📥 Baixar Feedbacks da Equipe (CSV)",
+            data=f_feedback,
+            file_name="feedbacks_w7.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
