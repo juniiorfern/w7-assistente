@@ -371,10 +371,20 @@ if "mensagens" not in st.session_state or not st.session_state.mensagens:
     ]
 
 # Renderização das Mensagens
-for msg in st.session_state.mensagens:
+for idx, msg in enumerate(st.session_state.mensagens):
     icone = ICONE_ASSISTENTE if msg["role"] == "assistant" else ICONE_USUARIO
     with st.chat_message(msg["role"], avatar=icone):
         st.markdown(msg["content"])
+        
+        # Avaliação com joinha para respostas do Jimmy
+        if msg["role"] == "assistant" and idx > 0:
+                chave_fb = f"fb_{idx}"
+                fb = st.feedback("thumbs", key=chave_fb)
+                if fb is not None and chave_fb not in st.session_state:
+                    pergunta_feita = st.session_state.mensagens[idx - 1]["content"]
+                    registrar_feedback(pergunta_feita, msg["content"], fb)
+                    st.session_state[chave_fb] = True
+                    st.toast("Feedback registrado!", icon="✅")
 
 # Atalhos rápidos de perguntas (Ideal para a apresentação ao vivo!)
 st.markdown("<p style='font-size:11px; color:#6C7380; text-transform:uppercase; font-weight:700; letter-spacing:1px; margin: 15px 0 6px 2px;'>Simulações Rápidas de Salão:</p>", unsafe_allow_html=True)
