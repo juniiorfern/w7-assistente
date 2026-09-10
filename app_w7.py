@@ -64,7 +64,7 @@ def obter_colecao():
     if colecao.count() > 0:
         return colecao
 
-   caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
+    caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
     if caminho_jsonl.exists():
         docs, metas, ids = [], [], []
         with open(caminho_jsonl, "r", encoding="utf-8") as f:
