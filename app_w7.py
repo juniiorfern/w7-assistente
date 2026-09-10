@@ -1,4 +1,5 @@
 import re
+import json
 import requests
 import threading
 import time
@@ -28,7 +29,7 @@ client = genai.Client(api_key=API_KEY)
 MODELO = "gemini-3.6-flash"
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
-DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database"
+DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v2"
 
 FONTES = [
     {"arquivo": DIRETORIO_ATUAL / "apostila.pdf", "nome_fonte": "apostila_lesoes_w7"},
@@ -63,54 +64,28 @@ def obter_colecao():
     if colecao.count() > 0:
         return colecao
 
-    for fonte in FONTES:
-        caminho_pdf = fonte["arquivo"]
-        nome_fonte = fonte["nome_fonte"]
-
-        if not caminho_pdf.exists():
-            continue
-
-        leitor = PdfReader(str(caminho_pdf))
+   caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
+    if caminho_jsonl.exists():
         docs, metas, ids = [], [], []
-        capitulo_atual = "geral"
-        em_bibliografia = False
-
-        for num_pag, pagina in enumerate(leitor.pages, start=1):
-            texto = pagina.extract_text() or ""
-            texto_lower = texto.lower()
-
-            if any(marcador in texto_lower for marcador in MARCADORES_BIBLIOGRAFIA):
-                em_bibliografia = True
-            if em_bibliografia:
-                continue
-
-            match_capitulo = PADRAO_CAPITULO.search(texto)
-            if match_capitulo:
-                capitulo_atual = match_capitulo.group(1).strip().split("\n")[0]
-
-            if texto.strip():
-                pedacos = fatiar_texto(texto.strip())
-                for idx, pedaco in enumerate(pedacos):
-                    docs.append(pedaco)
-                    metas.append({
-                        "fonte": nome_fonte,
-                        "capitulo": capitulo_atual,
-                        "pagina": num_pag,
-                        "bloco": idx + 1,
-                    })
-                    ids.append(f"{nome_fonte}_pag_{num_pag}_b_{idx + 1}")
+        with open(caminho_jsonl, "r", encoding="utf-8") as f:
+            for i, linha in enumerate(f):
+                linha = linha.strip()
+                if not linha:
+                    continue
+                item = json.loads(linha)
+                conteudo = f"CAPÍTULO: {item['capitulo']}\nCONDIÇÃO: {item['condicao']}\n\n{item['texto']}"
+                docs.append(conteudo)
+                metas.append({
+                    "capitulo": item["capitulo"],
+                    "condicao": item["condicao"],
+                    "fonte": "apostila_limpa"
+                })
+                ids.append(f"doc_{i}")
 
         if docs:
-            tamanho_lote = 100
-            for i in range(0, len(docs), tamanho_lote):
-                colecao.add(
-                    documents=docs[i:i + tamanho_lote],
-                    metadatas=metas[i:i + tamanho_lote],
-                    ids=ids[i:i + tamanho_lote],
-                )
+            colecao.add(documents=docs, metadatas=metas, ids=ids)
 
     return colecao
-
 
 # ==========================================
 # 4. CONSULTA À IA (com retry e tom fluido)
