@@ -385,9 +385,9 @@ if "mensagens" not in st.session_state or not st.session_state.mensagens:
         {
             "role": "assistant",
             "content": (
-                "Fala, time! **Jimmy** no posto. 🔴💪\n\n"
-                "A base de lesões e adaptações da **W7 Academy** está carregada e pronta. "
-                "Qual aluno ou situação conversar agora?"
+                "Fala, time! **Jimmy** ao seu dispor. 🔴💪\n\n"
+                "A base de condutas práticas para **lesões musculoesqueléticas** da W7 está carregada e pronta.\n\n"
+                "Qual aluno ou situação de lesão vamos avaliar agora?"
             ),
         }
     ]
