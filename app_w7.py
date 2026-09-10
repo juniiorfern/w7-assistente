@@ -1,5 +1,7 @@
 import re
 import json
+import csv
+from datetime import datetime
 import requests
 import threading
 import time
@@ -30,7 +32,20 @@ MODELO = "gemini-3.6-flash"
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
 DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v2"
+ARQUIVO_FEEDBACK = DIRETORIO_ATUAL / "feedbacks.csv"
 
+def registrar_feedback(pergunta, resposta, avaliacao):
+    existe = ARQUIVO_FEEDBACK.exists()
+    with open(ARQUIVO_FEEDBACK, "a", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        if not existe:
+            writer.writerow(["Data/Hora", "Pergunta", "Resposta", "Avaliacao"])
+        writer.writerow([
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            pergunta,
+            resposta,
+            "Positivo" if avaliacao == 1 else "Negativo"
+        ])
 @st.cache_resource
 def obter_colecao():
     cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
