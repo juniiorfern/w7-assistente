@@ -31,31 +31,6 @@ MODELO = "gemini-3.6-flash"
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
 DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v2"
 
-FONTES = [
-    {"arquivo": DIRETORIO_ATUAL / "apostila.pdf", "nome_fonte": "apostila_lesoes_w7"},
-]
-
-PADRAO_CAPITULO = re.compile(r"CAP[ÍI]TULO\s+\d+\s*[—\-]\s*(.+)", re.IGNORECASE)
-MARCADORES_BIBLIOGRAFIA = ("referencias bibliográficas", "referências bibliográficas")
-
-
-# ==========================================
-# 3. INDEXAÇÃO COM METADADOS
-# ==========================================
-def fatiar_texto(texto: str, tamanho_bloco: int = 700, sobreposicao: int = 150) -> list[str]:
-    blocos = []
-    inicio = 0
-    tamanho_total = len(texto)
-
-    while inicio < tamanho_total:
-        fim = inicio + tamanho_bloco
-        bloco = texto[inicio:fim].strip()
-        if bloco:
-            blocos.append(bloco)
-        inicio += tamanho_bloco - sobreposicao
-    return blocos
-
-
 @st.cache_resource
 def obter_colecao():
     cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
