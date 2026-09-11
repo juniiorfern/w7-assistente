@@ -1,6 +1,7 @@
 import re
 import json
 import csv
+import logging
 from datetime import datetime
 import requests
 import threading
@@ -13,6 +14,9 @@ from chromadb import Documents, EmbeddingFunction, Embeddings
 from google import genai
 from google.genai import types
 from pypdf import PdfReader
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("jimmy_w7")
 
 # ==========================================
 # 1. CONFIGURAÇÃO DA PÁGINA (W7 ULTRA-DARK)
@@ -120,7 +124,8 @@ def executar_consulta_ia(prompt_completo: str) -> str:
                 intervalo *= 2
                 continue
 
-            return f"Erro real da IA: {erro_msg}"
+            logger.error("Falha ao consultar Gemini: %s", erro_msg)
+            return "Deu um problema técnico aqui do meu lado. Tenta perguntar de novo em alguns segundos."
 
 
 def stream_texto(texto: str):
@@ -195,12 +200,13 @@ DIRETRIZES FUNDAMENTAIS:
 
         return executar_consulta_ia(prompt_completo)
     except Exception as erro:
-        return f"Erro ao consultar o material: {str(erro)}"
+        logger.error("Falha ao consultar o material: %s", erro)
+        return "Tive um problema para consultar o material agora. Tenta de novo em alguns segundos."
 
 # ==========================================
 # INTEGRAÇÃO PLANILHA GOOGLE SHEETS
 # ==========================================
-URL_PLANILHA_W7 = "https://script.google.com/macros/s/AKfycbw7CApe9ml2evzGAvPzWOao_3ztGxxkUkiE1KXBlQ1yGt6kb-HXGmMLW05b8ic3uo7GUw/exec"
+URL_PLANILHA_W7 = st.secrets.get("URL_PLANILHA_W7", "")
 
 def gravar_dialogo_planilha(pergunta: str, resposta: str):
     def enviar():
@@ -421,11 +427,12 @@ for idx, msg in enumerate(st.session_state.mensagens):
         # Avaliação com joinha para respostas do Jimmy
         if msg["role"] == "assistant" and idx > 0:
                 chave_fb = f"fb_{idx}"
+                chave_registrado = f"{chave_fb}_registrado"
                 fb = st.feedback("thumbs", key=chave_fb)
-                if fb is not None and chave_fb not in st.session_state:
+                if fb is not None and chave_registrado not in st.session_state:
                     pergunta_feita = st.session_state.mensagens[idx - 1]["content"]
                     registrar_feedback(pergunta_feita, msg["content"], fb)
-                    st.session_state[chave_fb] = True
+                    st.session_state[chave_registrado] = True
                     st.toast("Feedback registrado!", icon="✅")
 
 # Atalhos rápidos de perguntas (Ideal para a apresentação ao vivo!)
