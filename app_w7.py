@@ -34,14 +34,17 @@ MODELO_EMBEDDING = "gemini-embedding-001"
 
 class GeminiEmbeddingFunction(EmbeddingFunction):
     def __call__(self, input: Documents) -> Embeddings:
-        resultado = client.models.embed_content(
-            model=MODELO_EMBEDDING,
-            contents=input,
-        )
-        return [emb.values for emb in resultado.embeddings]
+        vetores = []
+        for i in range(0, len(input), 50):
+            res = client.models.embed_content(
+                model=MODELO_EMBEDDING,
+                contents=input[i:i + 50],
+            )
+            vetores.extend([emb.values for emb in res.embeddings])
+        return vetores
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
-DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v3"
+DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v4"
 ARQUIVO_FEEDBACK = DIRETORIO_ATUAL / "feedbacks.csv"
 
 def registrar_feedback(pergunta, resposta, avaliacao):
