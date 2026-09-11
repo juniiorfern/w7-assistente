@@ -39,12 +39,15 @@ MODELO_EMBEDDING = "gemini-embedding-001"
 class GeminiEmbeddingFunction(EmbeddingFunction):
     def __call__(self, input: Documents) -> Embeddings:
         vetores = []
-        for i in range(0, len(input), 50):
+        total_lotes = (len(input) + 49) // 50
+        for lote_num, i in enumerate(range(0, len(input), 50)):
             res = client.models.embed_content(
                 model=MODELO_EMBEDDING,
                 contents=input[i:i + 50],
             )
             vetores.extend([emb.values for emb in res.embeddings])
+            if lote_num < total_lotes - 1:
+                time.sleep(2)
         return vetores
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
@@ -65,37 +68,42 @@ def registrar_feedback(pergunta, resposta, avaliacao):
         ])
 @st.cache_resource
 def obter_colecao():
-    cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
-    colecao = cliente_chroma.get_or_create_collection(
-    name="conhecimento_w7",
-    embedding_function=GeminiEmbeddingFunction(),
-)
+    try:
+        cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
+        colecao = cliente_chroma.get_or_create_collection(
+            name="conhecimento_w7",
+            embedding_function=GeminiEmbeddingFunction(),
+        )
 
-    if colecao.count() > 0:
+        if colecao.count() > 0:
+            return colecao
+
+        caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
+        if caminho_jsonl.exists():
+            docs, metas, ids = [], [], []
+            with open(caminho_jsonl, "r", encoding="utf-8") as f:
+                for i, linha in enumerate(f):
+                    linha = linha.strip()
+                    if not linha:
+                        continue
+                    item = json.loads(linha)
+                    conteudo = f"CAPÍTULO: {item['capitulo']}\nCONDIÇÃO: {item['condicao']}\n\n{item['texto']}"
+                    docs.append(conteudo)
+                    metas.append({
+                        "capitulo": item["capitulo"],
+                        "condicao": item["condicao"],
+                        "fonte": "apostila_limpa"
+                    })
+                    ids.append(f"doc_{i}")
+
+            if docs:
+                colecao.add(documents=docs, metadatas=metas, ids=ids)
+
         return colecao
-
-    caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
-    if caminho_jsonl.exists():
-        docs, metas, ids = [], [], []
-        with open(caminho_jsonl, "r", encoding="utf-8") as f:
-            for i, linha in enumerate(f):
-                linha = linha.strip()
-                if not linha:
-                    continue
-                item = json.loads(linha)
-                conteudo = f"CAPÍTULO: {item['capitulo']}\nCONDIÇÃO: {item['condicao']}\n\n{item['texto']}"
-                docs.append(conteudo)
-                metas.append({
-                    "capitulo": item["capitulo"],
-                    "condicao": item["condicao"],
-                    "fonte": "apostila_limpa"
-                })
-                ids.append(f"doc_{i}")
-
-        if docs:
-            colecao.add(documents=docs, metadatas=metas, ids=ids)
-
-    return colecao
+    except Exception as erro:
+        logger.error("Falha ao carregar a base de conhecimento: %s", erro)
+        st.error("Não consegui carregar a base de conhecimento agora. Atualize a página em alguns segundos.")
+        st.stop()
 
 # ==========================================
 # 4. CONSULTA À IA (com retry e tom fluido)
