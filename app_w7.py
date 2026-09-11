@@ -29,7 +29,7 @@ st.set_page_config(
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-MODELO = "gemini-3.6-flash"
+MODELO = "gemini-3.8-flash"
 MODELO_EMBEDDING = "gemini-embedding-001"
 
 class GeminiEmbeddingFunction(EmbeddingFunction):
