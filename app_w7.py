@@ -9,6 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 import chromadb
+from chromadb import Documents, EmbeddingFunction, Embeddings
 from google import genai
 from google.genai import types
 from pypdf import PdfReader
@@ -29,9 +30,18 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
 MODELO = "gemini-3.6-flash"
+MODELO_EMBEDDING = "gemini-embedding-001"
+
+class GeminiEmbeddingFunction(EmbeddingFunction):
+    def __call__(self, input: Documents) -> Embeddings:
+        resultado = client.models.embed_content(
+            model=MODELO_EMBEDDING,
+            contents=input,
+        )
+        return [emb.values for emb in resultado.embeddings]
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
-DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v2"
+DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v3"
 ARQUIVO_FEEDBACK = DIRETORIO_ATUAL / "feedbacks.csv"
 
 def registrar_feedback(pergunta, resposta, avaliacao):
@@ -49,7 +59,10 @@ def registrar_feedback(pergunta, resposta, avaliacao):
 @st.cache_resource
 def obter_colecao():
     cliente_chroma = chromadb.PersistentClient(path=str(DIRETORIO_BANCO))
-    colecao = cliente_chroma.get_or_create_collection(name="conhecimento_w7")
+    colecao = cliente_chroma.get_or_create_collection(
+    name="conhecimento_w7",
+    embedding_function=GeminiEmbeddingFunction(),
+)
 
     if colecao.count() > 0:
         return colecao
