@@ -51,7 +51,7 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
         return vetores
 
 DIRETORIO_ATUAL = Path(__file__).resolve().parent
-DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v4"
+DIRETORIO_BANCO = DIRETORIO_ATUAL / "w7_database_v5"
 ARQUIVO_FEEDBACK = DIRETORIO_ATUAL / "feedbacks.csv"
 
 def registrar_feedback(pergunta, resposta, avaliacao):
@@ -75,29 +75,41 @@ def obter_colecao():
             embedding_function=GeminiEmbeddingFunction(),
         )
 
-        if colecao.count() > 0:
+                caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
+        if not caminho_jsonl.exists():
             return colecao
 
-        caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
-        if caminho_jsonl.exists():
-            docs, metas, ids = [], [], []
-            with open(caminho_jsonl, "r", encoding="utf-8") as f:
-                for i, linha in enumerate(f):
-                    linha = linha.strip()
-                    if not linha:
-                        continue
-                    item = json.loads(linha)
-                    conteudo = f"CAPÍTULO: {item['capitulo']}\nCONDIÇÃO: {item['condicao']}\n\n{item['texto']}"
-                    docs.append(conteudo)
-                    metas.append({
-                        "capitulo": item["capitulo"],
-                        "condicao": item["condicao"],
-                        "fonte": "apostila_limpa"
-                    })
-                    ids.append(f"doc_{i}")
+        docs, metas, ids = [], [], []
+        with open(caminho_jsonl, "r", encoding="utf-8") as f:
+            for i, linha in enumerate(f):
+                linha = linha.strip()
+                if not linha:
+                    continue
+                item = json.loads(linha)
+                conteudo = f"CAPÍTULO: {item['capitulo']}\nCONDIÇÃO: {item['condicao']}\n\n{item['texto']}"
+                docs.append(conteudo)
+                metas.append({
+                    "capitulo": item["capitulo"],
+                    "condicao": item["condicao"],
+                    "fonte": "apostila_limpa"
+                })
+                ids.append(f"doc_{i}")
 
-            if docs:
-                colecao.add(documents=docs, metadatas=metas, ids=ids)
+        ja_indexados = colecao.count()
+        docs_restantes = docs[ja_indexados:]
+        metas_restantes = metas[ja_indexados:]
+        ids_restantes = ids[ja_indexados:]
+
+        if not docs_restantes:
+            return colecao
+
+        tamanho_bloco = 20
+        for i in range(0, len(docs_restantes), tamanho_bloco):
+            colecao.add(
+                documents=docs_restantes[i:i + tamanho_bloco],
+                metadatas=metas_restantes[i:i + tamanho_bloco],
+                ids=ids_restantes[i:i + tamanho_bloco],
+            )
 
         return colecao
     except Exception as erro:
