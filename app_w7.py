@@ -471,20 +471,7 @@ for idx, msg in enumerate(st.session_state.mensagens):
                     st.session_state[chave_registrado] = True
                     st.toast("Feedback registrado!", icon="✅")
 
-# Atalhos rápidos de perguntas (Ideal para a apresentação ao vivo!)
-st.markdown("<p style='font-size:11px; color:#6C7380; text-transform:uppercase; font-weight:700; letter-spacing:1px; margin: 15px 0 6px 2px;'>Simulações Rápidas de Salão:</p>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-
-pergunta_rapida = None
-if col1.button("💥 Dor Patelar no Agachamento"):
-    pergunta_rapida = "Aluno com condromalácia patelar sente dor no agachamento. Qual a conduta da apostila?"
-if col2.button("⚡ Hérnia Discal & Extensora"):
-    pergunta_rapida = "Aluno com hérnia de disco lombar pode treinar perna pesado? Quais cuidados?"
-if col3.button("🎯 Pós-Cirúrgico de LCA"):
-    pergunta_rapida = "Aluno operou o LCA há 4 meses, o que o material W7 recomenda para fortalecer?"
-
-# Gatilho de Envio (Por digitação ou clique rápido)
-prompt_final = st.chat_input("Consulte a conduta técnica...") or pergunta_rapida
+prompt_final = st.chat_input("Consulte a conduta técnica...")
 
 if prompt_final:
     historico_recente = st.session_state.mensagens[-4:] if len(st.session_state.mensagens) > 0 else []
