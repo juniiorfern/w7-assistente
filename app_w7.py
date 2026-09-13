@@ -75,7 +75,7 @@ def obter_colecao():
             embedding_function=GeminiEmbeddingFunction(),
         )
 
-                caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
+        caminho_jsonl = DIRETORIO_ATUAL / "apostila_limpa.jsonl"
         if not caminho_jsonl.exists():
             return colecao
 
